@@ -11,7 +11,7 @@ CHANNEL_ID = "@overheard_pvl"
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-storage = {}  # хранение сообщений
+storage = {}
 
 
 def keyboard(msg_id):
@@ -23,19 +23,44 @@ def keyboard(msg_id):
     ])
 
 
+# /start
+@dp.message(lambda m: m.text == "/start")
+async def start_cmd(message: types.Message):
+    user = message.from_user
+
+    await message.answer(
+        "привет 👋\n"
+        "просто отправь сообщение или фото, и оно попадёт в систему"
+    )
+
+    # уведомление тебе
+    try:
+        await bot.send_message(
+            ADMIN_ID,
+            f"👤 новый пользователь нажал /start\n"
+            f"{user.full_name} | @{user.username if user.username else 'нет username'} | {user.id}"
+        )
+    except:
+        pass
+
+
+# обычные сообщения
 @dp.message()
 async def handler(message: types.Message):
     user = message.from_user
 
+    text = message.text or message.caption or "нет текста"
+
+    # ❌ игнорируем /start полностью дальше
+    if text == "/start":
+        return
+
     username = f"@{user.username}" if user.username else "нет username"
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    text = message.text or message.caption or "нет текста"
     photo = message.photo[-1].file_id if message.photo else None
-
     msg_id = str(message.message_id)
 
-    # сохраняем ВСЁ
     storage[msg_id] = {
         "text": text,
         "photo": photo,
@@ -53,22 +78,14 @@ async def handler(message: types.Message):
         f"💬 {text}"
     )
 
+    # уведомление тебе (дублируем факт отправки)
     try:
         if photo:
-            await bot.send_photo(
-                ADMIN_ID,
-                photo,
-                caption=admin_msg,
-                reply_markup=keyboard(msg_id)
-            )
+            await bot.send_photo(ADMIN_ID, photo, caption=admin_msg, reply_markup=keyboard(msg_id))
         else:
-            await bot.send_message(
-                ADMIN_ID,
-                admin_msg,
-                reply_markup=keyboard(msg_id)
-            )
-    except Exception as e:
-        print("admin error:", e)
+            await bot.send_message(ADMIN_ID, admin_msg, reply_markup=keyboard(msg_id))
+    except:
+        pass
 
 
 @dp.callback_query()
@@ -86,10 +103,10 @@ async def callback(call: types.CallbackQuery):
     if action == "anon":
         caption = f"💬 анонимный пост\n\n{text}"
     else:
-        user = data["user"]
+        u = data["user"]
         caption = (
             f"💬 пост\n\n{text}\n\n"
-            f"👤 @{user.username if user.username else 'нет username'}"
+            f"👤 @{u.username if u.username else 'нет username'}"
         )
 
     try:
@@ -102,7 +119,7 @@ async def callback(call: types.CallbackQuery):
 
     except Exception as e:
         print("channel error:", e)
-        await call.answer("ошибка публикации")
+        await call.answer("ошибка")
 
 
 async def main():
