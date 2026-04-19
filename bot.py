@@ -3,6 +3,7 @@ import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 API_TOKEN = os.getenv("API_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
@@ -42,8 +43,8 @@ async def handler(message: types.Message):
         return
 
     username = f"@{user.username}" if user.username else "нет username"
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+    now = datetime.now(ZoneInfo("Asia/Almaty")).strftime("%Y-%m-%d %H:%M:%S")
+    
     photo = message.photo[-1].file_id if message.photo else None
     msg_id = str(message.message_id)
 
