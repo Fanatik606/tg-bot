@@ -23,35 +23,21 @@ def keyboard(msg_id):
     ])
 
 
-# /start
 @dp.message(lambda m: m.text == "/start")
-async def start_cmd(message: types.Message):
-    user = message.from_user
-
+async def start(message: types.Message):
     await message.answer(
         "привет 👋\n"
-        "просто отправь сообщение или фото, и оно попадёт в систему"
+        "просто отправь сообщение или фото, оно попадёт в систему"
     )
 
-    # уведомление тебе
-    try:
-        await bot.send_message(
-            ADMIN_ID,
-            f"👤 новый пользователь нажал /start\n"
-            f"{user.full_name} | @{user.username if user.username else 'нет username'} | {user.id}"
-        )
-    except:
-        pass
 
-
-# обычные сообщения
 @dp.message()
 async def handler(message: types.Message):
     user = message.from_user
 
-    text = message.text or message.caption or "нет текста"
+    text = message.text or message.caption or ""
 
-    # ❌ игнорируем /start полностью дальше
+    # ❌ полностью игнорим /start
     if text == "/start":
         return
 
@@ -78,14 +64,27 @@ async def handler(message: types.Message):
         f"💬 {text}"
     )
 
-    # уведомление тебе (дублируем факт отправки)
     try:
         if photo:
-            await bot.send_photo(ADMIN_ID, photo, caption=admin_msg, reply_markup=keyboard(msg_id))
+            await bot.send_photo(
+                ADMIN_ID,
+                photo,
+                caption=admin_msg,
+                reply_markup=keyboard(msg_id)
+            )
         else:
-            await bot.send_message(ADMIN_ID, admin_msg, reply_markup=keyboard(msg_id))
-    except:
-        pass
+            await bot.send_message(
+                ADMIN_ID,
+                admin_msg,
+                reply_markup=keyboard(msg_id)
+            )
+
+        # 💬 подтверждение пользователю
+        await message.answer("сообщение отправлено ✔")
+
+    except Exception as e:
+        print("error:", e)
+        await message.answer("ошибка отправки ❌")
 
 
 @dp.callback_query()
