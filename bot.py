@@ -12,9 +12,8 @@ CHANNEL_ID = "@overheard_pvl"
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# антиспам
 user_last_time = {}
-SPAM_DELAY = 5  # секунд
+SPAM_DELAY = 3
 
 
 def is_spam(user_id):
@@ -28,83 +27,76 @@ def is_spam(user_id):
     return False
 
 
-def get_keyboard(text, user_info):
+def keyboard(message_id):
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(
-                text="анонимно в канал",
-                callback_data=f"anon|{text}|{user_info}"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="с юзером в канал",
-                callback_data=f"user|{text}|{user_info}"
-            )
+            InlineKeyboardButton(text="анонимно", callback_data=f"anon:{message_id}"),
+            InlineKeyboardButton(text="с юзером", callback_data=f"user:{message_id}")
         ]
     ])
+
+
+messages_cache = {}
 
 
 @dp.message()
 async def handle_message(message: types.Message):
     if is_spam(message.from_user.id):
-        await message.answer("слишком часто, подожди немного")
         return
 
     user = message.from_user
-
-    username = f"@{user.username}" if user.username else "нет username"
-    nickname = user.full_name
-    user_id = user.id
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     text = message.text or message.caption or "нет текста"
 
-    user_info = f"{nickname} | {username} | {user_id} | {now}"
+    msg_id = str(message.message_id)
 
-    caption = (
-        "новое сообщение\n\n"
-        f"пользователь: {nickname}\n"
-        f"юзер: {username}\n"
-        f"id: {user_id}\n"
-        f"время: {now}\n\n"
-        f"текст:\n{text}"
-    )
+    messages_cache[msg_id] = {
+        "user": user,
+        "text": text,
+        "time": now
+    }
+
+    caption = f"новое сообщение\n\n{user.full_name}\n{text}"
 
     try:
         if message.photo:
-            file_id = message.photo[-1].file_id
-
             await bot.send_photo(
                 ADMIN_ID,
-                photo=file_id,
+                message.photo[-1].file_id,
                 caption=caption,
-                reply_markup=get_keyboard(text, user_info)
+                reply_markup=keyboard(msg_id)
             )
         else:
             await bot.send_message(
                 ADMIN_ID,
                 caption,
-                reply_markup=get_keyboard(text, user_info)
+                reply_markup=keyboard(msg_id)
             )
-
     except Exception as e:
-        print("ошибка:", e)
+        print("error:", e)
 
 
 @dp.callback_query()
-async def callback_handler(callback: types.CallbackQuery):
-    data = callback.data
-    action, text, user_info = data.split("|", 2)
+async def callback_handler(call: types.CallbackQuery):
+    data = call.data
+    action, msg_id = data.split(":")
+
+    msg = messages_cache.get(msg_id)
+    if not msg:
+        await call.answer("сообщение не найдено")
+        return
+
+    user = msg["user"]
+    text = msg["text"]
 
     if action == "anon":
         post = f"💬 анонимный пост\n\n{text}"
-
     else:
-        post = f"💬 пост\n\n{text}\n\n👤 {user_info}"
+        post = f"💬 пост\n\n{text}\n\n👤 @{user.username if user.username else 'нет username'}"
 
     await bot.send_message(CHANNEL_ID, post)
-    await callback.answer("опубликовано в канал")
+    await call.answer("опубликовано")
 
 
 async def main():
