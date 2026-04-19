@@ -1,9 +1,10 @@
 import asyncio
+import os
 from aiogram import Bot, Dispatcher, types
 from datetime import datetime
 
-API_TOKEN = "8734151580:AAHCULS_PdWJoJlVBlZZ5E4i36nkyKbhKAQ"
-ADMIN_ID = 79322727056
+API_TOKEN = os.getenv("API_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
@@ -19,7 +20,6 @@ async def handle_message(message: types.Message):
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # текст или что-то другое
     if message.text:
         text = message.text
     elif message.caption:
@@ -28,12 +28,12 @@ async def handle_message(message: types.Message):
         text = "не текст (фото/видео/файл)"
 
     msg = (
-        f"📩 новое сообщение\n\n"
-        f"👤 ник: {nickname}\n"
-        f"🔗 юзер: {username}\n"
-        f"🆔 id: {user_id}\n"
-        f"🕒 время: {now}\n\n"
-        f"💬 текст:\n{text}"
+        f"новое сообщение\n\n"
+        f"ник: {nickname}\n"
+        f"юзер: {username}\n"
+        f"id: {user_id}\n"
+        f"время: {now}\n\n"
+        f"текст:\n{text}"
     )
 
     try:
