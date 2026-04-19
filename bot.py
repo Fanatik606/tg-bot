@@ -21,34 +21,35 @@ async def handle_message(message: types.Message):
 
     text = message.text or message.caption or "нет текста"
 
-    base_info = (
-        f"новое сообщение\n\n"
-        f"ник: {nickname}\n"
-        f"юзер: {username}\n"
-        f"id: {user_id}\n"
-        f"время: {now}\n\n"
+    caption = (
+        "📩 новое сообщение\n\n"
+        f"👤 пользователь: {nickname}\n"
+        f"🔗 юзер: {username}\n"
+        f"🆔 id: {user_id}\n"
+        f"⏰ время: {now}\n\n"
+        f"💬 сообщение:\n{text}"
     )
 
     try:
-        # если фото
+        # если есть фото
         if message.photo:
             file_id = message.photo[-1].file_id
 
             await bot.send_photo(
-                ADMIN_ID,
+                chat_id=ADMIN_ID,
                 photo=file_id,
-                caption=base_info + f"текст:\n{text}"
+                caption=caption
             )
 
-        # если просто текст
+        # если текста нет фото
         else:
             await bot.send_message(
-                ADMIN_ID,
-                base_info + f"текст:\n{text}"
+                chat_id=ADMIN_ID,
+                text=caption
             )
 
     except Exception as e:
-        print("ошибка отправки:", e)
+        print("ошибка:", e)
 
 
 async def main():
