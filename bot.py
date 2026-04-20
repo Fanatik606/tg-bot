@@ -12,10 +12,36 @@ CHANNEL_ID = "@overheard_pvl"
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
+# хранение сообщений
 storage = {}
 
+# антиспам
 user_last_time = {}
 SPAM_DELAY = 5
+
+
+RULES_TEXT = """
+📌 правила подслушано павлодара
+
+здесь публикуются сообщения о людях, ситуациях и всем, что происходит вокруг
+
+важно:
+допускаются резкие высказывания и личные мнения
+но ответственность за достоверность информации остаётся на авторе
+
+если опубликованная информация о человеке оказалась недостоверной:
+отправь этот пост обратно в бот
+он будет проверен
+при подтверждении недостоверности пост будет удалён
+
+запрещено:
+публикация заведомо ложной информации с целью навредить человеку
+распространение личных данных (доксинг, адреса, номера телефонов)
+угрозы и призывы к насилию
+спам
+
+администрация оставляет за собой право удалять любые материалы без объяснений
+"""
 
 
 def is_spam(user_id):
@@ -38,19 +64,37 @@ def keyboard(msg_id):
     ])
 
 
+# /start
 @dp.message(lambda m: m.text == "/start")
 async def start(message: types.Message):
-    await message.answer("привет,рекомендую ознакомиться с правилами вот тут: https://t.me/+7odLnLc-qe1jYWEy")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📌 правила", callback_data="rules")]
+    ])
+
+    await message.answer(
+        "привет 👋\n"
+        "отправь сообщение или фото",
+        reply_markup=kb
+    )
 
 
+# правила кнопка
+@dp.callback_query(lambda c: c.data == "rules")
+async def rules(call: types.CallbackQuery):
+    await call.message.answer(RULES_TEXT)
+    await call.answer()
+
+
+# обработка сообщений
 @dp.message()
 async def handler(message: types.Message):
+
     if is_spam(message.from_user.id):
         await message.answer("слишком часто, подожди немного")
         return
 
     user = message.from_user
-    text = message.text or message.caption or "нет текста"
+    text = message.text or message.caption or ""
 
     if text == "/start":
         return
@@ -77,9 +121,18 @@ async def handler(message: types.Message):
 
     try:
         if photo:
-            await bot.send_photo(ADMIN_ID, photo, caption=admin_text, reply_markup=keyboard(msg_id))
+            await bot.send_photo(
+                ADMIN_ID,
+                photo,
+                caption=admin_text,
+                reply_markup=keyboard(msg_id)
+            )
         else:
-            await bot.send_message(ADMIN_ID, admin_text, reply_markup=keyboard(msg_id))
+            await bot.send_message(
+                ADMIN_ID,
+                admin_text,
+                reply_markup=keyboard(msg_id)
+            )
 
         await message.answer("сообщение отправлено ✔")
 
@@ -88,8 +141,13 @@ async def handler(message: types.Message):
         await message.answer("ошибка отправки")
 
 
+# модерация
 @dp.callback_query()
 async def callback(call: types.CallbackQuery):
+
+    if call.data.startswith("rules"):
+        return
+
     action, msg_id = call.data.split(":")
 
     data = storage.get(msg_id)
@@ -100,13 +158,15 @@ async def callback(call: types.CallbackQuery):
     text = data["text"]
     photo = data["photo"]
 
-    # ❌ отклонение
+    # отклонение
     if action == "reject":
         await call.message.edit_text("❌ пост отклонён")
         await call.answer("отклонено")
         return
 
+    # публикация
     if action == "post":
+
         caption = f"💬 пост\n\n{text}"
 
         try:
