@@ -40,7 +40,7 @@ def keyboard(msg_id):
 
 @dp.message(lambda m: m.text == "/start")
 async def start(message: types.Message):
-    await message.answer("просто отправь сообщение или фото")
+    await message.answer("привет,рекомендую ознакомиться с правилами вот тут: https://t.me/+7odLnLc-qe1jYWEy")
 
 
 @dp.message()
