@@ -24,20 +24,20 @@ RULES_TEXT = """
 здесь публикуются сообщения о людях, ситуациях и всем, что происходит вокруг
 
 важно:
-допускаются резкие высказывания и личные мнения
-но ответственность за достоверность информации остаётся на авторе
+допускаются личные мнения и резкие высказывания
+но ответственность за достоверность остаётся на авторе
 
 если информация оказалась недостоверной:
-отправь пост в бот повторно и укажи там где ложная инфа
+отправь пост в бот повторно
 он будет проверен и удалён при подтверждении
 
 запрещено:
-- публикация заведомо ложной информации с целью навредить человеку
-- распространение личных данных
+- заведомо ложная информация с целью навредить
+- личные данные (адреса, телефоны и тд)
 - угрозы и призывы к насилию
 - спам
 
-администрация оставляет за собой право удалять любые материалы
+администрация может удалять материалы без объяснений
 """
 
 
@@ -100,22 +100,26 @@ async def handler(message: types.Message):
 
     now = datetime.now(ZoneInfo("Asia/Almaty")).strftime("%Y-%m-%d %H:%M:%S")
 
+    username = f"@{user.username}" if user.username else "нет username"
+    full_name = user.full_name or "без имени"
+
     photo = message.photo[-1].file_id if message.photo else None
     msg_id = str(message.message_id)
 
-     storage[msg_id] = {
+    storage[msg_id] = {
         "text": text,
         "photo": photo,
-        "user": user,
+        "user_id": user.id,
         "username": username,
-        "time": now
+        "full_name": full_name,
+        "chat_id": message.chat.id
     }
 
-    admin_msg = (
+    admin_text = (
         "📩 новое сообщение\n\n"
-        f"👤 {user.full_name}\n"
-        f"🔗 {username}\n"
-        f"🆔 {user.id}\n"
+        f"👤 имя: {full_name}\n"
+        f"🔗 юзер: {username}\n"
+        f"🆔 id: {user.id}\n"
         f"⏰ {now}\n\n"
         f"💬 {text}"
     )
@@ -146,11 +150,10 @@ async def handler(message: types.Message):
 @dp.callback_query()
 async def callback(call: types.CallbackQuery):
 
-    action, msg_id = call.data.split(":")
-
-    # правила отдельно
     if call.data == "rules":
         return
+
+    action, msg_id = call.data.split(":")
 
     data = storage.get(msg_id)
     if not data:
@@ -159,15 +162,20 @@ async def callback(call: types.CallbackQuery):
 
     text = data["text"]
     photo = data["photo"]
-    user = data["user"]
     chat_id = data["chat_id"]
+    username = data["username"]
+    full_name = data["full_name"]
 
     # ❌ отклонение
     if action == "reject":
-
         try:
-            await bot.send_message(chat_id, "❌ твой пост был отклонён модерацией")
+            await bot.send_message(
+                chat_id,
+                "❌ твой пост был отклонён модерацией"
+            )
+
             await call.message.delete()
+
         except Exception as e:
             print("reject error:", e)
 
@@ -182,7 +190,8 @@ async def callback(call: types.CallbackQuery):
     elif action == "user":
         caption = (
             f"💬 пост\n\n{text}\n\n"
-            f"👤 @{user.username if user.username else 'нет username'}"
+            f"👤 {full_name}\n"
+            f"🔗 {username}"
         )
     else:
         return
