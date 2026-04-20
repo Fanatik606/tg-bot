@@ -103,17 +103,18 @@ async def handler(message: types.Message):
     photo = message.photo[-1].file_id if message.photo else None
     msg_id = str(message.message_id)
 
-    storage[msg_id] = {
+     storage[msg_id] = {
         "text": text,
         "photo": photo,
         "user": user,
-        "time": now,
-        "chat_id": message.chat.id
+        "username": username,
+        "time": now
     }
 
-    admin_text = (
+    admin_msg = (
         "📩 новое сообщение\n\n"
         f"👤 {user.full_name}\n"
+        f"🔗 {username}\n"
         f"🆔 {user.id}\n"
         f"⏰ {now}\n\n"
         f"💬 {text}"
