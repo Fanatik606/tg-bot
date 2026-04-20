@@ -13,28 +13,9 @@ bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
 storage = {}
-accepted_users = set()
+
 user_last_time = {}
-
 SPAM_DELAY = 5
-
-
-def keyboard(msg_id):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="анонимно", callback_data=f"anon:{msg_id}"),
-            InlineKeyboardButton(text="с юзером", callback_data=f"user:{msg_id}")
-        ],
-        [
-            InlineKeyboardButton(text="❌ отклонить", callback_data=f"del:{msg_id}")
-        ]
-    ])
-
-
-def rules_keyboard():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="принять правила", callback_data="accept_rules")]
-    ])
 
 
 def is_spam(user_id):
@@ -48,47 +29,33 @@ def is_spam(user_id):
     return False
 
 
-# /start
+def keyboard(msg_id):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="опубликовать", callback_data=f"post:{msg_id}"),
+            InlineKeyboardButton(text="отклонить", callback_data=f"reject:{msg_id}")
+        ]
+    ])
+
+
 @dp.message(lambda m: m.text == "/start")
 async def start(message: types.Message):
-    await message.answer(
-        "привет, перед началом необходимо ознакомиться с правилами подслушки\n\n"
-        "важно:\n"
-        "> допускаются резкие высказывания и личные мнения\n"
-        "> но ответственность за достоверность информации остаётся на авторе\n\n"
-        "если информация о человеке оказалась недостоверной:\n"
-        "> отправь пост обратно в бот\n"
-        "> он будет проверен и удалён при необходимости\n\n"
-        "запрещено:\n"
-        "> публикация заведомо ложной информации с целью навредить человеку\n"
-        "> распространение личных данных (адреса, телефоны)\n"
-        "> угрозы и призывы к насилию\n"
-        "> спам\n\n"
-        "администрация может удалять материалы без объяснений",
-        reply_markup=rules_keyboard()
-    )
+    await message.answer("просто отправь сообщение или фото")
 
 
-# сообщения
 @dp.message()
 async def handler(message: types.Message):
+    if is_spam(message.from_user.id):
+        await message.answer("слишком часто, подожди немного")
+        return
+
     user = message.from_user
-
-    if user.id not in accepted_users:
-        await message.answer("сначала прими правила")
-        return
-
-    if is_spam(user.id):
-        await message.answer("не спамь")
-        return
-
-    text = message.text or message.caption or ""
+    text = message.text or message.caption or "нет текста"
 
     if text == "/start":
         return
 
     now = datetime.now(ZoneInfo("Asia/Almaty")).strftime("%Y-%m-%d %H:%M:%S")
-    username = f"@{user.username}" if user.username else "нет username"
 
     photo = message.photo[-1].file_id if message.photo else None
     msg_id = str(message.message_id)
@@ -100,10 +67,9 @@ async def handler(message: types.Message):
         "time": now
     }
 
-    admin_msg = (
+    admin_text = (
         "📩 новое сообщение\n\n"
         f"👤 {user.full_name}\n"
-        f"🔗 {username}\n"
         f"🆔 {user.id}\n"
         f"⏰ {now}\n\n"
         f"💬 {text}"
@@ -111,62 +77,50 @@ async def handler(message: types.Message):
 
     try:
         if photo:
-            await bot.send_photo(ADMIN_ID, photo, caption=admin_msg, reply_markup=keyboard(msg_id))
+            await bot.send_photo(ADMIN_ID, photo, caption=admin_text, reply_markup=keyboard(msg_id))
         else:
-            await bot.send_message(ADMIN_ID, admin_msg, reply_markup=keyboard(msg_id))
+            await bot.send_message(ADMIN_ID, admin_text, reply_markup=keyboard(msg_id))
 
         await message.answer("сообщение отправлено ✔")
 
     except Exception as e:
-        print(e)
+        print("error:", e)
+        await message.answer("ошибка отправки")
 
 
-# callback
 @dp.callback_query()
 async def callback(call: types.CallbackQuery):
-    data = call.data
+    action, msg_id = call.data.split(":")
 
-    if data == "accept_rules":
-        accepted_users.add(call.from_user.id)
-        await call.message.edit_text("правила приняты ✔")
-        return
-
-    action, msg_id = data.split(":")
-    data_msg = storage.get(msg_id)
-
-    if not data_msg:
+    data = storage.get(msg_id)
+    if not data:
         await call.answer("нет данных")
         return
 
-    user = data_msg["user"]
-    text = data_msg["text"]
-    photo = data_msg["photo"]
+    text = data["text"]
+    photo = data["photo"]
 
-    if action == "anon":
-        caption = f"💬 анонимный пост\n\n{text}"
-
-        if photo:
-            await bot.send_photo(CHANNEL_ID, photo, caption=caption)
-        else:
-            await bot.send_message(CHANNEL_ID, caption)
-
-    elif action == "user":
-        caption = (
-            f"💬 пост\n\n{text}\n\n"
-            f"👤 @{user.username if user.username else 'нет username'}"
-        )
-
-        if photo:
-            await bot.send_photo(CHANNEL_ID, photo, caption=caption)
-        else:
-            await bot.send_message(CHANNEL_ID, caption)
-
-    elif action == "del":
-        await call.message.delete()
-        await call.answer("удалено")
+    # ❌ отклонение
+    if action == "reject":
+        await call.message.edit_text("❌ пост отклонён")
+        await call.answer("отклонено")
         return
 
-    await call.answer("готово")
+    if action == "post":
+        caption = f"💬 пост\n\n{text}"
+
+        try:
+            if photo:
+                await bot.send_photo(CHANNEL_ID, photo, caption=caption)
+            else:
+                await bot.send_message(CHANNEL_ID, caption)
+
+            await call.message.edit_text("✅ опубликовано")
+            await call.answer("готово")
+
+        except Exception as e:
+            print("channel error:", e)
+            await call.answer("ошибка")
 
 
 async def main():
