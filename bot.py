@@ -117,9 +117,9 @@ async def handler(message: types.Message):
 
     admin_text = (
         "📩 новое сообщение\n\n"
-        f"👤 имя: {full_name}\n"
-        f"🔗 юзер: {username}\n"
-        f"🆔 id: {user.id}\n"
+        f"👤: {full_name}\n"
+        f"🔗: {username}\n"
+        f"🆔: {user.id}\n"
         f"⏰ {now}\n\n"
         f"💬 {text}"
     )
@@ -146,7 +146,6 @@ async def handler(message: types.Message):
         await message.answer("ошибка отправки")
 
 
-# модерация
 @dp.callback_query()
 async def callback(call: types.CallbackQuery):
 
@@ -166,7 +165,7 @@ async def callback(call: types.CallbackQuery):
     username = data["username"]
     full_name = data["full_name"]
 
-    # ❌ отклонение
+
     if action == "reject":
         try:
             await bot.send_message(
@@ -182,11 +181,10 @@ async def callback(call: types.CallbackQuery):
         await call.answer("отклонено")
         return
 
-    # 💬 аноним
+
     if action == "anon":
         caption = f"💬 анонимный пост\n\n{text}"
 
-    # 👤 с юзером
     elif action == "user":
         caption = (
             f"💬 пост\n\n{text}\n\n"
