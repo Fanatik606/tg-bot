@@ -33,7 +33,7 @@ RULES_TEXT = """
 
 запрещено:
 - заведомо ложная информация с целью навредить
-- личные данные (адреса, телефоны и тд)
+- личные данные
 - угрозы и призывы к насилию
 - спам
 
@@ -52,27 +52,53 @@ def is_spam(user_id):
     return False
 
 
+def trim_text(text, limit):
+    if len(text) > limit:
+        return text[:limit] + "\n\n... (обрезано)"
+    return text
+
+
 def keyboard(msg_id):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🔒 анонимно", callback_data=f"anon:{msg_id}"),
-            InlineKeyboardButton(text="👤 с юзером", callback_data=f"user:{msg_id}")
-        ],
-        [
-            InlineKeyboardButton(text="❌ отклонить", callback_data=f"reject:{msg_id}")
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔒 анонимно",
+                    callback_data=f"anon:{msg_id}"
+                ),
+                InlineKeyboardButton(
+                    text="👤 с юзером",
+                    callback_data=f"user:{msg_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ отклонить",
+                    callback_data=f"reject:{msg_id}"
+                )
+            ]
         ]
-    ])
+    )
 
 
 # /start
 @dp.message(lambda m: m.text == "/start")
 async def start(message: types.Message):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📌 правила", callback_data="rules")]
-    ])
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📌 правила",
+                    callback_data="rules"
+                )
+            ]
+        ]
+    )
 
     await message.answer(
-        "привет 👋\nотправь сообщение или фото",
+        "привет 👋\n"
+        "отправь сообщение или фото",
         reply_markup=kb
     )
 
@@ -80,6 +106,7 @@ async def start(message: types.Message):
 # правила
 @dp.callback_query(lambda c: c.data == "rules")
 async def rules(call: types.CallbackQuery):
+
     await call.message.answer(RULES_TEXT)
     await call.answer()
 
@@ -93,18 +120,37 @@ async def handler(message: types.Message):
         return
 
     user = message.from_user
+
     text = message.text or message.caption or ""
 
     if text == "/start":
         return
 
-    now = datetime.now(ZoneInfo("Asia/Almaty")).strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now(
+        ZoneInfo("Asia/Almaty")
+    ).strftime("%Y-%m-%d %H:%M:%S")
 
-    username = f"@{user.username}" if user.username else "нет username"
+    username = (
+        f"@{user.username}"
+        if user.username
+        else "нет username"
+    )
+
     full_name = user.full_name or "без имени"
 
-    photo = message.photo[-1].file_id if message.photo else None
+    photo = (
+        message.photo[-1].file_id
+        if message.photo
+        else None
+    )
+
     msg_id = str(message.message_id)
+
+    # ограничения telegram
+    text = trim_text(
+        text,
+        900 if photo else 3500
+    )
 
     storage[msg_id] = {
         "text": text,
@@ -117,14 +163,15 @@ async def handler(message: types.Message):
 
     admin_text = (
         "📩 новое сообщение\n\n"
-        f"👤: {full_name}\n"
-        f"🔗: {username}\n"
-        f"🆔: {user.id}\n"
-        f"⏰ {now}\n\n"
-        f"💬 {text}"
+        f"👤 имя: {full_name}\n"
+        f"🔗 юзер: {username}\n"
+        f"🆔 id: {user.id}\n"
+        f"⏰ время: {now}\n\n"
+        f"💬 текст:\n{text}"
     )
 
     try:
+
         if photo:
             await bot.send_photo(
                 ADMIN_ID,
@@ -132,6 +179,7 @@ async def handler(message: types.Message):
                 caption=admin_text,
                 reply_markup=keyboard(msg_id)
             )
+
         else:
             await bot.send_message(
                 ADMIN_ID,
@@ -139,13 +187,19 @@ async def handler(message: types.Message):
                 reply_markup=keyboard(msg_id)
             )
 
-        await message.answer("сообщение отправлено ✔")
+        await message.answer(
+            "сообщение отправлено ✔"
+        )
 
     except Exception as e:
-        print("error:", e)
-        await message.answer("ошибка отправки")
+        print("admin error:", e)
+
+        await message.answer(
+            "ошибка отправки ❌"
+        )
 
 
+# модерация
 @dp.callback_query()
 async def callback(call: types.CallbackQuery):
 
@@ -155,6 +209,7 @@ async def callback(call: types.CallbackQuery):
     action, msg_id = call.data.split(":")
 
     data = storage.get(msg_id)
+
     if not data:
         await call.answer("нет данных")
         return
@@ -165,51 +220,91 @@ async def callback(call: types.CallbackQuery):
     username = data["username"]
     full_name = data["full_name"]
 
+    # отклонение
+    if action == "reject":
 
-   if action == "reject":
-    try:
-        await bot.send_message(
-            chat_id,
-            "❌ твой пост был отклонён модерацией"
+        try:
+
+            await bot.send_message(
+                chat_id,
+                "❌ твой пост был отклонён модерацией"
+            )
+
+            # убрать кнопки
+            await call.message.edit_reply_markup(
+                reply_markup=None
+            )
+
+        except Exception as e:
+            print("reject error:", e)
+
+        await call.answer("отклонено")
+        return
+
+    # аноним
+    if action == "anon":
+
+        caption = (
+            f"💬 анонимный пост\n\n{text}"
         )
 
-        await call.message.edit_reply_markup(reply_markup=None)
-
-    except Exception as e:
-        print("reject error:", e)
-
-    await call.answer("отклонено")
-    return
-
-
-    if action == "anon":
-        caption = f"💬 анонимный пост\n\n{text}"
-
+    # с юзером
     elif action == "user":
+
         caption = (
             f"💬 пост\n\n{text}\n\n"
             f"👤 {full_name}\n"
             f"🔗 {username}"
         )
+
     else:
         return
 
     try:
+
         if photo:
-            await bot.send_photo(CHANNEL_ID, photo, caption=caption)
+
+            await bot.send_photo(
+                CHANNEL_ID,
+                photo,
+                caption=caption
+            )
+
         else:
-            await bot.send_message(CHANNEL_ID, caption)
 
-await call.message.edit_reply_markup(reply_markup=None)
+            await bot.send_message(
+                CHANNEL_ID,
+                caption
+            )
 
-await call.answer("опубликовано")
+        # уведомление пользователю
+        try:
+
+            await bot.send_message(
+                chat_id,
+                "✅ твой пост был опубликован"
+            )
+
+        except Exception as e:
+            print("notify error:", e)
+
+        # убрать кнопки
+        await call.message.edit_reply_markup(
+            reply_markup=None
+        )
+
+        await call.answer("опубликовано")
+
     except Exception as e:
         print("channel error:", e)
+
         await call.answer("ошибка")
 
 
 async def main():
+
     print("бот запущен...")
+
     await dp.start_polling(bot)
 
 
