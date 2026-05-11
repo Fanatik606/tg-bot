@@ -103,7 +103,6 @@ async def start(message: types.Message):
     )
 
 
-# правила
 @dp.callback_query(lambda c: c.data == "rules")
 async def rules(call: types.CallbackQuery):
 
@@ -199,7 +198,6 @@ async def handler(message: types.Message):
         )
 
 
-# модерация
 @dp.callback_query()
 async def callback(call: types.CallbackQuery):
 
@@ -220,7 +218,6 @@ async def callback(call: types.CallbackQuery):
     username = data["username"]
     full_name = data["full_name"]
 
-    # отклонение
     if action == "reject":
 
         try:
@@ -230,7 +227,6 @@ async def callback(call: types.CallbackQuery):
                 "❌ твой пост был отклонён модерацией"
             )
 
-            # убрать кнопки
             await call.message.edit_reply_markup(
                 reply_markup=None
             )
@@ -277,7 +273,6 @@ async def callback(call: types.CallbackQuery):
                 caption
             )
 
-        # уведомление пользователю
         try:
 
             await bot.send_message(
@@ -288,7 +283,6 @@ async def callback(call: types.CallbackQuery):
         except Exception as e:
             print("notify error:", e)
 
-        # убрать кнопки
         await call.message.edit_reply_markup(
             reply_markup=None
         )
