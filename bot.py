@@ -199,14 +199,7 @@ async def callback(call: types.CallbackQuery):
             await bot.send_photo(CHANNEL_ID, photo, caption=caption)
         else:
             await bot.send_message(CHANNEL_ID, caption)
-try:
-    await bot.send_message(
-        chat_id,
-        "✅ твой пост был опубликован"
-    )
-except Exception as e:
-    print("user notify error:", e)
-   
+
 await call.message.edit_reply_markup(reply_markup=None)
 
 await call.answer("опубликовано")
