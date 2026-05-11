@@ -166,20 +166,20 @@ async def callback(call: types.CallbackQuery):
     full_name = data["full_name"]
 
 
-    if action == "reject":
-        try:
-            await bot.send_message(
-                chat_id,
-                "❌ твой пост был отклонён модерацией"
-            )
+   if action == "reject":
+    try:
+        await bot.send_message(
+            chat_id,
+            "❌ твой пост был отклонён модерацией"
+        )
 
-            await call.message.delete()
+        await call.message.edit_reply_markup(reply_markup=None)
 
-        except Exception as e:
-            print("reject error:", e)
+    except Exception as e:
+        print("reject error:", e)
 
-        await call.answer("отклонено")
-        return
+    await call.answer("отклонено")
+    return
 
 
     if action == "anon":
@@ -199,10 +199,17 @@ async def callback(call: types.CallbackQuery):
             await bot.send_photo(CHANNEL_ID, photo, caption=caption)
         else:
             await bot.send_message(CHANNEL_ID, caption)
+try:
+    await bot.send_message(
+        chat_id,
+        "✅ твой пост был опубликован"
+    )
+except Exception as e:
+    print("user notify error:", e)
+   
+await call.message.edit_reply_markup(reply_markup=None)
 
-        await call.message.edit_text("✅ опубликовано")
-        await call.answer("готово")
-
+await call.answer("опубликовано")
     except Exception as e:
         print("channel error:", e)
         await call.answer("ошибка")
